@@ -20,7 +20,7 @@ function spawn_model() {
 	X=${X:=0.0}
 	Y=${Y:=$((3*${N}))}
 
-	SUPPORTED_MODELS=("iris" "plane" "standard_vtol" "rover" "r1_rover" "typhoon_h480")
+	SUPPORTED_MODELS=("iris" "plane" "standard_vtol" "rover" "r1_rover" "typhoon_h480" "boat" "lc_62" "x500")
 	if [[ " ${SUPPORTED_MODELS[*]} " != *"$MODEL"* ]];
 	then
 		echo "ERROR: Currently only vehicle model $MODEL is not supported!"
@@ -46,6 +46,8 @@ function spawn_model() {
 	set -- ${@} --gst_udp_port $((5600+${N}))
 	set -- ${@} --video_uri $((5600+${N}))
 	set -- ${@} --mavlink_cam_udp_port $((14530+${N}))
+	set -- ${@} --unreal_ip 127.0.0.1
+	set -- ${@} --unreal_port $((5005))
 	set -- ${@} --output-file /tmp/${MODEL}_${N}.sdf
 
 	python3 ${@}

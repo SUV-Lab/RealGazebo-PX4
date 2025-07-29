@@ -265,11 +265,6 @@ navigator start
 
 # Try to start the UXRCE-DDS Client with UDP transport if module exists
 uxrce_dds_ns=""
-if [ "$px4_instance" -ne "0" ]
-then
-	# for multi intances setup, add namespace prefix
-	uxrce_dds_ns="-n px4_$px4_instance"
-fi
 if [ -n "$PX4_UXRCE_DDS_NS" ]
 then
 	# Override namespace if environment variable is defined

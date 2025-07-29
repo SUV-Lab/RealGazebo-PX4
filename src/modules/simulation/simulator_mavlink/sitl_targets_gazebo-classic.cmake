@@ -94,6 +94,8 @@ if(gazebo_FOUND)
 		quadtailsitter
 		r1_rover
 		rover
+		wamv
+		lc_62
 		standard_vtol
 		standard_vtol_drop
 		tailsitter
@@ -102,6 +104,7 @@ if(gazebo_FOUND)
 		typhoon_h480
 		uuv_bluerov2_heavy
 		uuv_hippocampus
+		x500
 	)
 
 	set(worlds
@@ -114,6 +117,7 @@ if(gazebo_FOUND)
 		warehouse
 		windy
 		yosemite
+		c-track
 	)
 
 	# find corresponding airframes
