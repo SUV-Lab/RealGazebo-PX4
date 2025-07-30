@@ -12,7 +12,7 @@
 	branch = main
 [submodule "Tools/simulation/gazebo-classic/sitl_gazebo-classic"]
 	path = Tools/simulation/gazebo-classic/sitl_gazebo-classic
-	url = https://github.com/MDEAGEWT/RealGazebo-PX4-SITL_gazebo-classic.git
+	url = https://github.com/SUV-Lab/RealGazebo-PX4-SITL_gazebo-classic.git
 	branch = realgazebo-1.14
 [submodule "src/drivers/gps/devices"]
 	path = src/drivers/gps/devices
