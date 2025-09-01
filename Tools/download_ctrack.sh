@@ -26,4 +26,4 @@ if [ ! -d "$DEST_PATH" ]; then
   mkdir "$DEST_PATH"
 fi
 
-python3 -m gdown --continue 13TmnltIcraQ770KEB1bI-RRVQ1CgvL_1 -O "$DEST_PATH/c-track.stl"
+wget -q https://realgazebo.cbnu.ac.kr/file/c-track.stl -O "$DEST_PATH/c-track.stl"
