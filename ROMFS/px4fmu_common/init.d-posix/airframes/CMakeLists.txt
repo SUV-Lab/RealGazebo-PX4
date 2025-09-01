@@ -93,6 +93,8 @@ px4_add_romfs_files(
 	4020_gz_tiltrotor
 	4021_gz_x500_flow
 
+	4025_gz_boat
+
 	4101_gz_lc_62
 
 	6011_gazebo-classic_typhoon_h480
