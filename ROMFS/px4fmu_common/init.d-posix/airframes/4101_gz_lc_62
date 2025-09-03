@@ -189,3 +189,5 @@ param set-default VT_QC_T_ALT_LOSS 60.0000
 param set-default VT_TRANS_TIMEOUT 60.0000
 
 param set-default FD_ESCS_EN 0
+
+param set-default UXRCE_DDS_SYNCT 0
