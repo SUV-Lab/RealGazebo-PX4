@@ -26,31 +26,38 @@ param set-default CA_AIRFRAME 2
 
 param set-default CA_ROTOR_COUNT 8
 param set-default CA_ROTOR0_PX 0.0000
-param set-default CA_ROTOR0_PY 0.7500
-param set-default CA_ROTOR0_KM -0.0500
+param set-default CA_ROTOR0_PY 0.7475
+param set-default CA_ROTOR0_KM -0.06
+
 param set-default CA_ROTOR1_PX 0.0000
-param set-default CA_ROTOR1_PY -0.7500
-param set-default CA_ROTOR1_KM 0.05
+param set-default CA_ROTOR1_PY -0.7475
+param set-default CA_ROTOR1_KM 0.06
+
 param set-default CA_ROTOR2_PX 1.0300
-param set-default CA_ROTOR2_PY -0.7500
-param set-default CA_ROTOR2_KM -0.05
+param set-default CA_ROTOR2_PY -0.7475
+param set-default CA_ROTOR2_KM -0.06
+
 param set-default CA_ROTOR3_PX -1.0300
-param set-default CA_ROTOR3_PY 0.7500
-param set-default CA_ROTOR3_KM 0.0500
-param set-default CA_ROTOR4_AX 0.0000
-param set-default CA_ROTOR4_AZ -1.0000
+param set-default CA_ROTOR3_PY 0.7475
+param set-default CA_ROTOR3_KM 0.06
+
 param set-default CA_ROTOR4_PX 1.0300
-param set-default CA_ROTOR4_PY 0.7500
-param set-default CA_ROTOR5_KM -0.0500
+param set-default CA_ROTOR4_PY 0.7475
+param set-default CA_ROTOR4_KM 0.06
+
 param set-default CA_ROTOR5_PX -1.0300
-param set-default CA_ROTOR5_PY -0.7500
+param set-default CA_ROTOR5_PY -0.7475
+param set-default CA_ROTOR5_KM -0.0500
+
 param set-default CA_ROTOR6_AX 1.0000
 param set-default CA_ROTOR6_AZ 0.0000
+#param set-default CA_ROTOR6_KM 0.06
 param set-default CA_ROTOR6_PX -0.4900
 param set-default CA_ROTOR6_PY -1.1400
+
 param set-default CA_ROTOR7_AX 1.0000
 param set-default CA_ROTOR7_AZ 0.0000
-param set-default CA_ROTOR7_KM -0.0500
+#param set-default CA_ROTOR7_KM -0.06
 param set-default CA_ROTOR7_PX -0.4900
 param set-default CA_ROTOR7_PY 1.1400
 
@@ -106,7 +113,7 @@ param set-default FW_PSP_OFF 3.0000
 param set-default FW_P_LIM_MIN -10.0000
 param set-default FW_RR_FF 0.5000
 param set-default FW_RR_P 0.2000
-param set-default FW_THR_TRIM 0.7500
+param set-default FW_THR_TRIM 0.300
 param set-default FW_THR_MAX 1.0000
 param set-default FW_THR_MIN 0.0500
 param set-default FW_T_CLMB_MAX 5.0000
@@ -123,11 +130,10 @@ param set-default MPC_XY_VEL_P_ACC 1.0000
 param set-default MPC_XY_VEL_I_ACC 0.2000
 param set-default MPC_XY_VEL_D_ACC 0.4000
 param set-default NAV_ACC_RAD 50.0000
-param set-default VT_FWD_THRUST_EN 4
-param set-default VT_F_TRANS_THR 1.0000
+param set-default VT_FWD_THRUST_EN 0
+param set-default VT_F_TRANS_THR 0.3000
+param set-default VT_PSHER_SLEW 3
 param set-default VT_TYPE 2
-
-param set-default COM_RCL_EXCEPT 4
 
 param set-default FW_AIRSPD_MAX 40.0000
 param set-default FW_AIRSPD_TRIM 25.0000
@@ -137,14 +143,12 @@ param set-default FW_P_LIM_MAX 15.0000
 param set-default FW_P_RMAX_NEG 30.0000
 param set-default FW_P_RMAX_POS 30.0000
 param set-default FW_P_TC 0.2000
-param set-default FW_RLL_TO_YAW_FF 0.1000
+# param set-default FW_RLL_TO_YAW_FF 0.1000
 param set-default FW_R_LIM 30.0000
 param set-default FW_R_RMAX 50.0000
-param set-default FW_THR_IDLE 0.1000
+param set-default FW_THR_IDLE 0.3000
 param set-default FW_THR_SLEW_MAX 0.6000
 param set-default FW_T_HRATE_FF 0.3000
-param set-default FW_T_PTCH_DAMP 0.0000
-param set-default FW_T_THR_DAMP 0.5000
 param set-default FW_WR_IMAX 1.0000
 param set-default FW_YR_P 0.1500
 
@@ -183,11 +187,14 @@ param set-default NAV_MC_ALT_RAD 0.8000
 
 param set-default RTL_DESCEND_ALT 10.0000
 
-param set-default VT_B_DEC_FF 0.0450
+param set-default VT_ARSP_TRANS 25.0000
 param set-default VT_B_DEC_I 0.0000
 param set-default VT_QC_T_ALT_LOSS 60.0000
 param set-default VT_TRANS_TIMEOUT 60.0000
+param set-default VT_FW_DIFTHR_EN 0
+param set-default VT_FW_DIFTHR_S_R 0
+param set-default VT_FW_DIFTHR_S_P 0
+param set-default VT_FW_DIFTHR_S_Y 0
+
 
 param set-default FD_ESCS_EN 0
-
-param set-default UXRCE_DDS_SYNCT 0
