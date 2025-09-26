@@ -54,4 +54,5 @@ param set-default SIM_GZ_EC_FUNC2 102
 param set-default SIM_GZ_EC_MIN2 0
 param set-default SIM_GZ_EC_MAX2 1000
 
+param set-default COM_RCL_EXCEPT 31
 param set-default UXRCE_DDS_SYNCT 0

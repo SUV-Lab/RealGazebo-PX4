@@ -198,3 +198,4 @@ param set-default VT_FW_DIFTHR_S_Y 0
 
 
 param set-default FD_ESCS_EN 0
+param set-default COM_RCL_EXCEPT 31

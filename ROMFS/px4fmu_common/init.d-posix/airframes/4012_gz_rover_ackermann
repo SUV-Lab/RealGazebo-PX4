@@ -57,4 +57,5 @@ param set-default CA_SV_CS_COUNT 1
 param set-default SIM_GZ_SV_FUNC1 201
 param set-default SIM_GZ_SV_REV 1
 
+param set-default COM_RCL_EXCEPT 31
 param set-default UXRCE_DDS_SYNCT 0
