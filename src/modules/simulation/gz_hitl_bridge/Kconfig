@@ -1,0 +1,6 @@
+menuconfig MODULES_SIMULATION_GZ_HITL_BRIDGE
+	bool "gz_hitl_bridge"
+	default n
+	depends on PLATFORM_POSIX
+	---help---
+		Standalone gz <-> MAVLink HIL bridge for HITL simulation
