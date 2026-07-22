@@ -203,7 +203,7 @@ void FcLink::heartbeatLoop()
 		{
 			// shared tx seq with the HIL stream (see txStatus() in the header)
 			std::lock_guard<std::mutex> lock(_tx_mutex);
-			mavlink_msg_heartbeat_pack_status(1, 200, &_tx_status, &msg,
+			mavlink_msg_heartbeat_pack_status(_sysid, 200, &_tx_status, &msg,
 							  MAV_TYPE_GENERIC, MAV_AUTOPILOT_INVALID, 0, 0, 0);
 		}
 		sendMessage(msg);

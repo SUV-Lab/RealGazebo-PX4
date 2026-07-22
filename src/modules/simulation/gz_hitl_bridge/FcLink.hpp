@@ -65,7 +65,11 @@ public:
 	// Must be called before start() -- the handler is not synchronized against a running RX thread.
 	void setMessageHandler(std::function<void(const mavlink_message_t &)> h);
 
-	void start();   // starts the RX thread + 1Hz heartbeat (sysid=1, compid=200)
+	// MAVLink system id for the 1Hz heartbeat, matching the sysid main()
+	// stamps on the HIL messages. Must be called before start().
+	void setSysId(uint8_t sysid) { _sysid = sysid; }
+
+	void start();   // starts the RX thread + 1Hz heartbeat (compid=200)
 	void stop();
 
 	bool linkOk() const;   // true if there has been reception from the FC within the last 3 seconds
@@ -95,6 +99,8 @@ private:
 	bool _is_serial{false};
 	sockaddr_in _remote{};
 	std::mutex _remote_mutex;   // _remote: written by rxLoop, read by sendMessage() -- prevents a race
+
+	uint8_t _sysid{1};          // set via setSysId() before start()
 
 	mavlink_status_t _tx_status{};
 	std::mutex _tx_mutex;       // guards _tx_status (heartbeat thread vs gz callback thread)

@@ -72,6 +72,13 @@ struct Options {
 	unsigned motors{8};
 	double motor_max_vel{1000.0};
 
+	// MAVLink system id stamped on everything the bridge sends to the FC.
+	// The manager passes vehicle_id + 1 (PX4's own convention: SITL's rcS
+	// sets MAV_SYS_ID = instance + 1). Without a distinct id per vehicle,
+	// every bridge in a multi-HITL fleet transmits as system 1 and a GCS
+	// merges them into a single vehicle.
+	int sysid{1};
+
 	// The FC<->QGC relay is OPT-IN: it is the only way QGC can see a
 	// serial-linked FC, but it is pure duplication when the FC reaches QGC
 	// on its own (ethernet FC with a separate GCS MAVLink instance), where
@@ -83,6 +90,14 @@ struct Options {
 
 std::atomic<bool> g_run{true};
 
+// Set by the RX thread when the FC announces a system id different from the
+// one we were configured with (--sysid). Holds the FC's id; 0 = no mismatch.
+// A mismatch is a misconfiguration, not a transient: QGC would list the
+// bridge and the FC as two systems, and on the MAV_USEHILGPS path PX4
+// silently drops HIL_GPS whose sysid is not its own. The main loop turns
+// this into a loud exit rather than letting the run continue half-broken.
+std::atomic<int> g_fc_sysid_mismatch{0};
+
 void handleSigint(int /*sig*/)
 {
 	g_run = false;
@@ -93,6 +108,7 @@ void printUsage(const char *prog)
 	fprintf(stderr,
 		"usage: %s --model <name> [--world default] [--udp <host:port> | --device </dev/ttyACM0>]\n"
 		"       [--baud 921600] [--local-port 14540] [--motors 8] [--motor-max-vel 1000.0]\n"
+		"       [--sysid 1]\n"
 		"       [--qgc <host:port>]   (omit to disable the QGC relay)\n",
 		prog);
 }
@@ -179,6 +195,11 @@ bool parseArgs(int argc, char **argv, Options &o)
 		} else if (arg == "--motor-max-vel") {
 			if (!parseDouble(next(), o.motor_max_vel)) { return false; }
 
+		} else if (arg == "--sysid") {
+			if (!parseInt(next(), o.sysid) || o.sysid < 1 || o.sysid > 255) {
+				return false;
+			}
+
 		} else if (arg == "--qgc") {
 			if (!splitHostPort(next(), o.qgc_host, o.qgc_port)) {
 				return false;
@@ -221,7 +242,12 @@ int main(int argc, char **argv)
 
 	GzSource gz(o.world, o.model);
 
-	auto on_imu = [&fclink, &gz](uint64_t time_usec) {
+	// One system id for every bridge-originated message (HIL encodes below
+	// and FcLink's heartbeat), so the FC and any GCS see a single component.
+	const uint8_t sysid = static_cast<uint8_t>(o.sysid);
+	fclink.setSysId(sysid);
+
+	auto on_imu = [&fclink, &gz, sysid](uint64_t time_usec) {
 		mavlink_hil_sensor_t hil_sensor;
 		{
 			std::lock_guard<std::mutex> lock(gz.stateMutex());
@@ -234,7 +260,7 @@ int main(int argc, char **argv)
 			// per-translation-unit counter, which would interleave with the
 			// heartbeat's and flood the FC's per-component 'lost' stats
 			std::lock_guard<std::mutex> lock(fclink.txMutex());
-			mavlink_msg_hil_sensor_encode_status(1, 200, fclink.txStatus(), &msg, &hil_sensor);
+			mavlink_msg_hil_sensor_encode_status(sysid, 200, fclink.txStatus(), &msg, &hil_sensor);
 		}
 		fclink.sendMessage(msg);
 
@@ -245,7 +271,7 @@ int main(int argc, char **argv)
 			mavlink_message_t gps_msg;
 			{
 				std::lock_guard<std::mutex> lock(fclink.txMutex());
-				mavlink_msg_hil_gps_encode_status(1, 200, fclink.txStatus(), &gps_msg, &hil_gps);
+				mavlink_msg_hil_gps_encode_status(sysid, 200, fclink.txStatus(), &gps_msg, &hil_gps);
 			}
 			fclink.sendMessage(gps_msg);
 		}
@@ -274,7 +300,19 @@ int main(int argc, char **argv)
 	}
 
 	// setMessageHandler() is called before fclink.start() (required by FcLink's thread-safety contract)
-	fclink.setMessageHandler([&gz, &relay, motors, motor_max_vel](const mavlink_message_t &m) {
+	fclink.setMessageHandler([&gz, &relay, motors, motor_max_vel, sysid](const mavlink_message_t &m) {
+		// The FC's own heartbeat carries its MAV_SYS_ID. Only an autopilot's
+		// heartbeat counts: a GCS heartbeat forwarded over this link (when the
+		// FC instance has MAV_x_FORWARD on) legitimately carries another id.
+		if (m.msgid == MAVLINK_MSG_ID_HEARTBEAT) {
+			mavlink_heartbeat_t hb;
+			mavlink_msg_heartbeat_decode(&m, &hb);
+
+			if (hb.autopilot != MAV_AUTOPILOT_INVALID && m.sysid != sysid) {
+				g_fc_sysid_mismatch.store(m.sysid);
+			}
+		}
+
 		if (m.msgid == MAVLINK_MSG_ID_HIL_ACTUATOR_CONTROLS) {
 			mavlink_hil_actuator_controls_t hil_actuator_controls;
 			mavlink_msg_hil_actuator_controls_decode(&m, &hil_actuator_controls);
@@ -303,7 +341,21 @@ int main(int argc, char **argv)
 	bool link_was_ok = false;   // no FC reception yet at startup (matches linkOk()'s real initial value)
 	bool imu_was_alive = false; // no gz IMU callback yet at startup (matches imuAlive()'s real initial value)
 
+	int exit_code = 0;
+
 	while (g_run) {
+		const int fc_sysid = g_fc_sysid_mismatch.load();
+
+		if (fc_sysid != 0) {
+			fprintf(stderr,
+				"gz-hitl-bridge: error: sysid mismatch -- configured --sysid %d but the FC "
+				"announces MAV_SYS_ID %d. Set the FC's MAV_SYS_ID to %d (or pass sys_id: %d "
+				"in the vehicle's YAML entry) and restart.\n",
+				sysid, fc_sysid, sysid, fc_sysid);
+			exit_code = 1;
+			break;
+		}
+
 		const bool link_ok = fclink.linkOk();
 
 		if (!link_ok && link_was_ok) {
@@ -342,5 +394,5 @@ int main(int argc, char **argv)
 	gz.stop();
 
 	printf("gz-hitl-bridge: stopped\n");
-	return 0;
+	return exit_code;
 }
