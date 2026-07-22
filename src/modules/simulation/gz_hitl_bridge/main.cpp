@@ -72,8 +72,13 @@ struct Options {
 	unsigned motors{8};
 	double motor_max_vel{1000.0};
 
-	std::string qgc_host{"127.0.0.1"};
-	int qgc_port{14550};
+	// The FC<->QGC relay is OPT-IN: it is the only way QGC can see a
+	// serial-linked FC, but it is pure duplication when the FC reaches QGC
+	// on its own (ethernet FC with a separate GCS MAVLink instance), where
+	// it costs bridge CPU and shows QGC a second link to the same vehicle.
+	bool qgc_relay{false};
+	std::string qgc_host;
+	int qgc_port{0};
 };
 
 std::atomic<bool> g_run{true};
@@ -88,7 +93,7 @@ void printUsage(const char *prog)
 	fprintf(stderr,
 		"usage: %s --model <name> [--world default] [--udp <host:port> | --device </dev/ttyACM0>]\n"
 		"       [--baud 921600] [--local-port 14540] [--motors 8] [--motor-max-vel 1000.0]\n"
-		"       [--qgc <host:port>=127.0.0.1:14550]\n",
+		"       [--qgc <host:port>]   (omit to disable the QGC relay)\n",
 		prog);
 }
 
@@ -179,6 +184,8 @@ bool parseArgs(int argc, char **argv, Options &o)
 				return false;
 			}
 
+			o.qgc_relay = true;
+
 		} else {
 			return false;
 		}
@@ -255,10 +262,16 @@ int main(int argc, char **argv)
 	// GcsRelay: bidirectional FC<->QGC relay. A failed open() is non-fatal -- it only logs a
 	// warning (from inside GcsRelay::open()) and the bridge keeps running without the relay.
 	GcsRelay relay;
-	relay.open(o.qgc_host, o.qgc_port);
-	relay.setToFcHandler([&fclink](const mavlink_message_t &m) {
-		fclink.sendMessage(m);
-	});
+
+	if (o.qgc_relay) {
+		relay.open(o.qgc_host, o.qgc_port);
+		relay.setToFcHandler([&fclink](const mavlink_message_t &m) {
+			fclink.sendMessage(m);
+		});
+
+	} else {
+		printf("gz-hitl-bridge: QGC relay disabled (no --qgc); QGC must reach the FC directly\n");
+	}
 
 	// setMessageHandler() is called before fclink.start() (required by FcLink's thread-safety contract)
 	fclink.setMessageHandler([&gz, &relay, motors, motor_max_vel](const mavlink_message_t &m) {
@@ -276,7 +289,11 @@ int main(int argc, char **argv)
 	});
 
 	// relay.start() runs before fclink.start(); shutdown below tears them down in reverse order.
-	relay.start();
+	// Skipped entirely when the relay is disabled (start() would only warn about the unopened fd).
+	if (o.qgc_relay) {
+		relay.start();
+	}
+
 	fclink.start();
 
 	std::signal(SIGINT, handleSigint);
