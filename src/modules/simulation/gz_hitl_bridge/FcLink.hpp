@@ -97,9 +97,6 @@ private:
 
 	int _fd{-1};
 	bool _is_serial{false};
-	sockaddr_in _remote{};
-	std::mutex _remote_mutex;   // _remote: written by rxLoop, read by sendMessage() -- prevents a race
-
 	uint8_t _sysid{1};          // set via setSysId() before start()
 
 	mavlink_status_t _tx_status{};

@@ -99,13 +99,18 @@ bool FcLink::openUdp(const std::string &fc_host, int fc_port, int local_port)
 
 	if (bind(_fd, (sockaddr *)&local, sizeof(local)) < 0) { return false; }
 
-	{
-		std::lock_guard<std::mutex> lock(_remote_mutex);
-		std::memset(&_remote, 0, sizeof(_remote));
-		_remote.sin_family = AF_INET;
-		_remote.sin_addr.s_addr = inet_addr(fc_host.c_str());
-		_remote.sin_port = htons(fc_port);
-	}
+	sockaddr_in remote{};
+	remote.sin_family = AF_INET;
+	remote.sin_addr.s_addr = inet_addr(fc_host.c_str());
+	remote.sin_port = htons(fc_port);
+
+	// Pin the peer: the kernel then delivers only this FC's datagrams and
+	// send() needs no address. Without it the socket accepts anything sent
+	// to local_port and the old code retargeted the HIL stream at whoever
+	// that was -- another FC's broadcast or a GCS probe could hijack it, and
+	// since the sysid check treats a foreign autopilot heartbeat as a
+	// mismatch, it would also kill an otherwise healthy run.
+	if (connect(_fd, (sockaddr *)&remote, sizeof(remote)) < 0) { return false; }
 
 	_is_serial = false;
 	return true;
@@ -148,12 +153,8 @@ void FcLink::sendMessage(const mavlink_message_t &msg)
 		(void)!::write(_fd, buf, len);
 
 	} else {
-		sockaddr_in remote_copy;
-		{
-			std::lock_guard<std::mutex> lock(_remote_mutex);
-			remote_copy = _remote;
-		}
-		(void)!::sendto(_fd, buf, len, 0, (sockaddr *)&remote_copy, sizeof(remote_copy));
+		// connected socket (see openUdp) -- no destination needed
+		(void)!::send(_fd, buf, len, 0);
 	}
 }
 
@@ -175,13 +176,8 @@ void FcLink::rxLoop()
 			n = ::read(_fd, buf, sizeof(buf));
 
 		} else {
-			sockaddr_in src{}; socklen_t slen = sizeof(src);
-			n = ::recvfrom(_fd, buf, sizeof(buf), 0, (sockaddr *)&src, &slen);
-
-			if (n > 0) {
-				std::lock_guard<std::mutex> lock(_remote_mutex);
-				_remote = src;   // learn the FC's address (handles reboot/port changes)
-			}
+			// connect()ed in openUdp, so this only ever yields the FC's datagrams
+			n = ::recv(_fd, buf, sizeof(buf), 0);
 		}
 
 		if (n <= 0) { usleep(2000); continue; }
