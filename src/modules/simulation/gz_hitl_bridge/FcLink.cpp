@@ -200,8 +200,12 @@ void FcLink::heartbeatLoop()
 {
 	while (_running) {
 		mavlink_message_t msg;
-		mavlink_msg_heartbeat_pack_chan(1, 200, MAVLINK_COMM_0, &msg,
-						MAV_TYPE_GENERIC, MAV_AUTOPILOT_INVALID, 0, 0, 0);
+		{
+			// shared tx seq with the HIL stream (see txStatus() in the header)
+			std::lock_guard<std::mutex> lock(_tx_mutex);
+			mavlink_msg_heartbeat_pack_status(1, 200, &_tx_status, &msg,
+							  MAV_TYPE_GENERIC, MAV_AUTOPILOT_INVALID, 0, 0, 0);
+		}
 		sendMessage(msg);
 
 		for (int i = 0; i < 10 && _running; i++) { usleep(100000); }

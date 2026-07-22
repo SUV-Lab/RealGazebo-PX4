@@ -70,6 +70,17 @@ public:
 
 	bool linkOk() const;   // true if there has been reception from the FC within the last 3 seconds
 
+	// Single tx sequence counter for EVERY bridge-originated message sent to
+	// the FC under (sysid 1, compid 200). The mavlink chan helpers must NOT
+	// be used across translation units: MAVLINK_HELPER is static-inline, so
+	// each TU gets its own hidden channel status, and interleaving two
+	// independent seq streams on one (sysid, compid) made the FC's
+	// per-component stats count exactly +255 phantom 'lost' per heartbeat.
+	// Hold txMutex() while packing with the *_pack_status/_encode_status
+	// helpers against txStatus(), then sendMessage().
+	mavlink_status_t *txStatus() { return &_tx_status; }
+	std::mutex &txMutex() { return _tx_mutex; }
+
 private:
 	void rxLoop();
 	void heartbeatLoop();
@@ -84,6 +95,9 @@ private:
 	bool _is_serial{false};
 	sockaddr_in _remote{};
 	std::mutex _remote_mutex;   // _remote: written by rxLoop, read by sendMessage() -- prevents a race
+
+	mavlink_status_t _tx_status{};
+	std::mutex _tx_mutex;       // guards _tx_status (heartbeat thread vs gz callback thread)
 
 	std::function<void(const mavlink_message_t &)> _handler;
 };

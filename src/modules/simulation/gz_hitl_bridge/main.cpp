@@ -222,7 +222,13 @@ int main(int argc, char **argv)
 		}
 
 		mavlink_message_t msg;
-		mavlink_msg_hil_sensor_encode(1, 200, &msg, &hil_sensor);
+		{
+			// pack against FcLink's shared tx status: the chan helpers keep a
+			// per-translation-unit counter, which would interleave with the
+			// heartbeat's and flood the FC's per-component 'lost' stats
+			std::lock_guard<std::mutex> lock(fclink.txMutex());
+			mavlink_msg_hil_sensor_encode_status(1, 200, fclink.txStatus(), &msg, &hil_sensor);
+		}
 		fclink.sendMessage(msg);
 
 		GpsSample gps;
@@ -230,7 +236,10 @@ int main(int argc, char **argv)
 		if (gz.gpsPop(gps)) {
 			mavlink_hil_gps_t hil_gps = buildHilGps(time_usec, gps);
 			mavlink_message_t gps_msg;
-			mavlink_msg_hil_gps_encode(1, 200, &gps_msg, &hil_gps);
+			{
+				std::lock_guard<std::mutex> lock(fclink.txMutex());
+				mavlink_msg_hil_gps_encode_status(1, 200, fclink.txStatus(), &gps_msg, &hil_gps);
+			}
 			fclink.sendMessage(gps_msg);
 		}
 	};
