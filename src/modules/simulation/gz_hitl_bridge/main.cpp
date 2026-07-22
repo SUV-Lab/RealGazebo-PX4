@@ -72,6 +72,11 @@ struct Options {
 	unsigned motors{8};
 	double motor_max_vel{1000.0};
 
+	// Control surfaces following the motors on the HIL channels. The manager
+	// counts <moveableLink> in the model SDF; 0 for a plain multirotor.
+	unsigned servos{0};
+	double servo_max_angle{0.5};   // rad at full [-1,1] deflection
+
 	// MAVLink system id stamped on everything the bridge sends to the FC.
 	// The manager passes vehicle_id + 1 (PX4's own convention: SITL's rcS
 	// sets MAV_SYS_ID = instance + 1). Without a distinct id per vehicle,
@@ -108,7 +113,7 @@ void printUsage(const char *prog)
 	fprintf(stderr,
 		"usage: %s --model <name> [--world default] [--udp <host:port> | --device </dev/ttyACM0>]\n"
 		"       [--baud 921600] [--local-port 14540] [--motors 8] [--motor-max-vel 1000.0]\n"
-		"       [--sysid 1]\n"
+		"       [--sysid 1] [--servos 0] [--servo-max-angle 0.5]\n"
 		"       [--qgc <host:port>]   (omit to disable the QGC relay)\n",
 		prog);
 }
@@ -195,6 +200,18 @@ bool parseArgs(int argc, char **argv, Options &o)
 		} else if (arg == "--motor-max-vel") {
 			if (!parseDouble(next(), o.motor_max_vel)) { return false; }
 
+		} else if (arg == "--servos") {
+			int v = 0;
+
+			if (!parseInt(next(), v) || v < 0 || v > 16) { return false; }
+
+			o.servos = static_cast<unsigned>(v);
+
+		} else if (arg == "--servo-max-angle") {
+			if (!parseDouble(next(), o.servo_max_angle) || o.servo_max_angle <= 0.0) {
+				return false;
+			}
+
 		} else if (arg == "--sysid") {
 			if (!parseInt(next(), o.sysid) || o.sysid < 1 || o.sysid > 255) {
 				return false;
@@ -242,6 +259,9 @@ int main(int argc, char **argv)
 
 	GzSource gz(o.world, o.model);
 
+	const unsigned servos = o.servos;
+	const double servo_max_angle = o.servo_max_angle;
+
 	// One system id for every bridge-originated message (HIL encodes below
 	// and FcLink's heartbeat), so the FC and any GCS see a single component.
 	const uint8_t sysid = static_cast<uint8_t>(o.sysid);
@@ -277,7 +297,7 @@ int main(int argc, char **argv)
 		}
 	};
 
-	if (!gz.init(on_imu)) {
+	if (!gz.init(on_imu, servos)) {
 		fprintf(stderr, "gz-hitl-bridge: error: failed to init gz source\n");
 		return 1;
 	}
@@ -300,7 +320,8 @@ int main(int argc, char **argv)
 	}
 
 	// setMessageHandler() is called before fclink.start() (required by FcLink's thread-safety contract)
-	fclink.setMessageHandler([&gz, &relay, motors, motor_max_vel, sysid](const mavlink_message_t &m) {
+	fclink.setMessageHandler([&gz, &relay, motors, motor_max_vel, servos, servo_max_angle,
+							 sysid](const mavlink_message_t &m) {
 		// The FC's own heartbeat carries its MAV_SYS_ID. Only an autopilot's
 		// heartbeat counts: a GCS heartbeat forwarded over this link (when the
 		// FC instance has MAV_x_FORWARD on) legitimately carries another id.
@@ -318,6 +339,10 @@ int main(int argc, char **argv)
 			mavlink_msg_hil_actuator_controls_decode(&m, &hil_actuator_controls);
 			const MotorCommand cmd = decodeActuators(hil_actuator_controls, motors, motor_max_vel);
 			gz.publishMotors(cmd);
+
+			if (servos > 0) {
+				gz.publishServos(decodeServos(hil_actuator_controls, motors, servos, servo_max_angle));
+			}
 		}
 
 		// Every message from the FC (including HIL_ACTUATOR_CONTROLS) is relayed to QGC -- the

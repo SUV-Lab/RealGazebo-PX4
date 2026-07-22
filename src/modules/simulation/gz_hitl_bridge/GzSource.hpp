@@ -42,6 +42,7 @@
 #include <gz/msgs/navsat.pb.h>
 #include <gz/msgs/air_speed.pb.h>
 #include <gz/msgs/actuators.pb.h>
+#include <gz/msgs/double.pb.h>
 
 #include <atomic>
 #include <chrono>
@@ -66,7 +67,7 @@ public:
 	// yet; once a publisher appears, callbacks start automatically (no retry logic needed).
 	// on_imu(time_usec) is invoked from the IMU callback context (a gz thread) and triggers
 	// sending the HIL_SENSOR/HIL_GPS messages.
-	bool init(std::function<void(uint64_t)> on_imu);
+	bool init(std::function<void(uint64_t)> on_imu, unsigned num_servos = 0);
 
 	// Unsubscribes and tears down the motor publisher (destroying the Node unsubscribes it
 	// under gz-transport's internal mutex, so no callback can fire afterward). Idempotent.
@@ -83,6 +84,12 @@ public:
 	// Silently a no-op if called after stop() -- the publisher has already been torn down.
 	void publishMotors(const MotorCommand &cmd);
 	void publishMotorsZero(unsigned count);
+
+	// Control surfaces. init() advertises one /model/<model>/servo_N topic per
+	// servo, the same names PX4's own gz SITL bridge uses
+	// (GZMixingInterfaceServo), so an existing model's JointPositionController
+	// blocks are driven unchanged.
+	void publishServos(const ServoCommand &cmd);
 
 	bool imuAlive() const;   // true if an IMU callback has fired within the last second
 
@@ -102,6 +109,7 @@ private:
 	// means cleanup does not depend on destruction order.
 	std::unique_ptr<gz::transport::Node> _node;
 	gz::transport::Node::Publisher _motor_pub;
+	std::vector<gz::transport::Node::Publisher> _servo_pubs;
 
 	SensorState _state;
 	std::mutex _mutex;    // protects _state

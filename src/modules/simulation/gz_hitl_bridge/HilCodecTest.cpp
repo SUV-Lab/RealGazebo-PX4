@@ -148,3 +148,54 @@ TEST(HilCodec, DecodeActuatorsClampNegative)
 	MotorCommand c = decodeActuators(in, 1, 1000.0);
 	EXPECT_DOUBLE_EQ(c.velocity_rad_s[0], 0.0);
 }
+
+// -- control surfaces -----------------------------------------------------
+
+TEST(HilCodec, decodeServosTakesTheChannelsAfterTheMotors)
+{
+	// lc_62 layout: 8 motors on channels 0..7, 5 control surfaces on 8..12
+	mavlink_hil_actuator_controls_t in{};
+	in.mode = 128;   // armed
+
+	for (int i = 0; i < 8; i++) { in.controls[i] = 0.5f; }
+
+	in.controls[8]  = 1.0f;    // full positive deflection
+	in.controls[9]  = -1.0f;   // full negative
+	in.controls[10] = 0.0f;    // centred
+	in.controls[11] = 0.5f;
+	in.controls[12] = -0.25f;
+
+	ServoCommand c = decodeServos(in, 8, 5, 0.4);
+	ASSERT_EQ(c.count, 5u);
+	EXPECT_DOUBLE_EQ(c.angle_rad[0], 0.4);
+	EXPECT_DOUBLE_EQ(c.angle_rad[1], -0.4);
+	EXPECT_DOUBLE_EQ(c.angle_rad[2], 0.0);
+	EXPECT_DOUBLE_EQ(c.angle_rad[3], 0.2);
+	EXPECT_DOUBLE_EQ(c.angle_rad[4], -0.1);
+}
+
+TEST(HilCodec, decodeServosIsEmptyForAMultirotor)
+{
+	mavlink_hil_actuator_controls_t in{};
+	in.mode = 128;
+	EXPECT_EQ(decodeServos(in, 4, 0, 0.4).count, 0u);
+}
+
+TEST(HilCodec, decodeServosClampsToTheSixteenHilChannels)
+{
+	mavlink_hil_actuator_controls_t in{};
+	in.mode = 128;
+	// 12 motors leave only 4 channels, however many servos are claimed
+	EXPECT_EQ(decodeServos(in, 12, 8, 0.4).count, 4u);
+}
+
+TEST(HilCodec, decodeServosDeflectsWhileDisarmed)
+{
+	// unlike motors, surfaces are not a hazard: the FC still owns them
+	mavlink_hil_actuator_controls_t in{};
+	in.mode = 0;   // disarmed
+	in.controls[4] = 1.0f;
+	ServoCommand c = decodeServos(in, 4, 1, 0.4);
+	ASSERT_EQ(c.count, 1u);
+	EXPECT_DOUBLE_EQ(c.angle_rad[0], 0.4);
+}

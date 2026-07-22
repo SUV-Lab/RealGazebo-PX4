@@ -59,6 +59,20 @@ mavlink_hil_gps_t    buildHilGps(uint64_t time_usec, const GpsSample &g);
 
 // Actuator decoding (HIL_ACTUATOR_CONTROLS -> motor angular velocities)
 struct MotorCommand { bool armed{false}; double velocity_rad_s[16] {}; unsigned count{0}; };
+
+// Control-surface deflections, in radians, for the servo_N gz topics.
+// PX4 normalises non-motor outputs to [-1, 1] (pwm_out_sim/PWMSim.cpp), and
+// gz's JointPositionController takes a target angle, so the value is scaled
+// by max_angle_rad.
+struct ServoCommand { double angle_rad[16] {}; unsigned count{0}; };
+
+// HIL channel layout: <motorJoint> entries first, then <moveableLink> ones.
+// The manager derives both counts from the model SDF and the paired
+// RealGazebo HITL airframe mirrors them in HIL_ACT_FUNC (motors 101..,
+// servos 201..), so the two always describe the same channels.
 MotorCommand decodeActuators(const mavlink_hil_actuator_controls_t &m,
 			     unsigned num_motors, double max_vel_rad_s);
+ServoCommand decodeServos(const mavlink_hil_actuator_controls_t &m,
+			  unsigned num_motors, unsigned num_servos,
+			  double max_angle_rad);
 } // namespace gz_hitl

@@ -49,7 +49,7 @@ GzSource::~GzSource()
 	stop();
 }
 
-bool GzSource::init(std::function<void(uint64_t)> on_imu)
+bool GzSource::init(std::function<void(uint64_t)> on_imu, unsigned num_servos)
 {
 	_on_imu = std::move(on_imu);
 
@@ -92,6 +92,17 @@ bool GzSource::init(std::function<void(uint64_t)> on_imu)
 	const std::string motor_topic = "/" + _model + "/command/motor_speed";
 	_motor_pub = _node->Advertise<gz::msgs::Actuators>(motor_topic);
 
+	for (unsigned i = 0; i < num_servos; i++) {
+		// matches PX4's gz SITL bridge: /model/<model>/servo_N carrying a Double angle
+		const std::string servo_topic = "/model/" + _model + "/servo_" + std::to_string(i);
+		_servo_pubs.push_back(_node->Advertise<gz::msgs::Double>(servo_topic));
+
+		if (!_servo_pubs.back().Valid()) {
+			fprintf(stderr, "gz-hitl-bridge: error: failed to advertise %s\n", servo_topic.c_str());
+			return false;
+		}
+	}
+
 	if (!_motor_pub.Valid()) {
 		fprintf(stderr, "gz-hitl-bridge: error: failed to advertise %s\n", motor_topic.c_str());
 		return false;
@@ -104,6 +115,7 @@ void GzSource::stop()
 {
 	// Invalidate the publisher first -> publishMotors() silently becomes a no-op from here on.
 	_motor_pub = gz::transport::Node::Publisher();
+	_servo_pubs.clear();
 
 	// Destroying the Node unsubscribes it under gz-transport's internal mutex, so no more
 	// imu/mag/baro/navsat callbacks can fire for this object after this call returns
@@ -196,6 +208,20 @@ void GzSource::publishMotors(const MotorCommand &cmd)
 	}
 
 	_motor_pub.Publish(msg);
+}
+
+void GzSource::publishServos(const ServoCommand &cmd)
+{
+	const unsigned n = (cmd.count < _servo_pubs.size()) ? cmd.count
+			   : static_cast<unsigned>(_servo_pubs.size());
+
+	for (unsigned i = 0; i < n; i++) {
+		if (!_servo_pubs[i].Valid()) { continue; }
+
+		gz::msgs::Double msg;
+		msg.set_data(cmd.angle_rad[i]);
+		_servo_pubs[i].Publish(msg);
+	}
 }
 
 void GzSource::publishMotorsZero(unsigned count)

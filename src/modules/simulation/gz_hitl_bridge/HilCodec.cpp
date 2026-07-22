@@ -147,4 +147,21 @@ MotorCommand decodeActuators(const mavlink_hil_actuator_controls_t &m,
 	return c;
 }
 
+ServoCommand decodeServos(const mavlink_hil_actuator_controls_t &m,
+			  unsigned num_motors, unsigned num_servos,
+			  double max_angle_rad)
+{
+	ServoCommand c;
+	const unsigned first = (num_motors > 16u) ? 16u : num_motors;
+	c.count = (first + num_servos > 16u) ? (16u - first) : num_servos;
+
+	for (unsigned i = 0; i < c.count; i++) {
+		// already [-1, 1] from the FC; disarmed surfaces stay where the FC
+		// commands them (unlike motors, a deflection is not a hazard)
+		c.angle_rad[i] = static_cast<double>(m.controls[first + i]) * max_angle_rad;
+	}
+
+	return c;
+}
+
 } // namespace gz_hitl
