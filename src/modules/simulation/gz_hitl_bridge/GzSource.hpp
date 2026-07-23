@@ -109,6 +109,7 @@ private:
 	// means cleanup does not depend on destruction order.
 	std::unique_ptr<gz::transport::Node> _node;
 	gz::transport::Node::Publisher _motor_pub;
+	gz::transport::Node::Publisher _wheel_pub;   // /model/<model>/... rover-wheel convention
 	std::vector<gz::transport::Node::Publisher> _servo_pubs;
 
 	SensorState _state;

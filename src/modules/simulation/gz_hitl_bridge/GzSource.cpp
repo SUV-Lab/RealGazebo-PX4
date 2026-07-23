@@ -92,6 +92,12 @@ bool GzSource::init(std::function<void(uint64_t)> on_imu, unsigned num_servos)
 	const std::string motor_topic = "/" + _model + "/command/motor_speed";
 	_motor_pub = _node->Advertise<gz::msgs::Actuators>(motor_topic);
 
+	// PX4's SITL bridge has two actuator conventions: ESC ("/<model>/...",
+	// multicopter MulticopterMotorModel) and Wheel ("/model/<model>/...",
+	// rover JointControllers). Publish to both so every model type works.
+	const std::string wheel_topic = "/model/" + _model + "/command/motor_speed";
+	_wheel_pub = _node->Advertise<gz::msgs::Actuators>(wheel_topic);
+
 	for (unsigned i = 0; i < num_servos; i++) {
 		// matches PX4's gz SITL bridge: /model/<model>/servo_N carrying a Double angle
 		const std::string servo_topic = "/model/" + _model + "/servo_" + std::to_string(i);
@@ -108,13 +114,19 @@ bool GzSource::init(std::function<void(uint64_t)> on_imu, unsigned num_servos)
 		return false;
 	}
 
+	if (!_wheel_pub.Valid()) {
+		fprintf(stderr, "gz-hitl-bridge: error: failed to advertise %s\n", wheel_topic.c_str());
+		return false;
+	}
+
 	return true;
 }
 
 void GzSource::stop()
 {
-	// Invalidate the publisher first -> publishMotors() silently becomes a no-op from here on.
+	// Invalidate the publishers first -> publishMotors() silently becomes a no-op from here on.
 	_motor_pub = gz::transport::Node::Publisher();
+	_wheel_pub = gz::transport::Node::Publisher();
 	_servo_pubs.clear();
 
 	// Destroying the Node unsubscribes it under gz-transport's internal mutex, so no more
@@ -208,6 +220,10 @@ void GzSource::publishMotors(const MotorCommand &cmd)
 	}
 
 	_motor_pub.Publish(msg);
+
+	if (_wheel_pub.Valid()) {
+		_wheel_pub.Publish(msg);
+	}
 }
 
 void GzSource::publishServos(const ServoCommand &cmd)
