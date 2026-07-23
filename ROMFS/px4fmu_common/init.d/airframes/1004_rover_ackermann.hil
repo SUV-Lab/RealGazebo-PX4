@@ -1,0 +1,91 @@
+#!/bin/sh
+#
+# @name HIL rover_ackermann
+#
+# @type Rover
+# @class Rover
+#
+# HITL twin of 4012_gz_rover_ackermann (SITL): identical Ackermann tuning,
+# with the simulator-side outputs replaced by HIL channels.
+#
+# The channel layout is the contract with RealGazebo's gz-hitl-bridge,
+# which drives gz from HIL_ACTUATOR_CONTROLS. The bridge takes the leading
+# channels as motors and the rest as servos, with both counts derived by
+# the manager from rover_ackermann.sdf.jinja's RealGazebo plugin block
+# (<motorJoint> x4, <moveableLink> x2 -> --motors 4 --servos 2).
+#
+# The gz model itself consumes only ONE value per group: all four wheel
+# JointControllers read Actuators index 0, and both steering
+# JointPositionControllers subscribe to the servo_0 topic. So a single
+# throttle function on ch 1 and a single steering function on ch 5 (the
+# first servo channel, right after the four motor channels) drive the
+# whole rover; ch 2..4 and servo_1 are published by the bridge but
+# ignored by the model.
+#
+#   ch 1      Motor1  (101) -> Actuators[0] -> all four wheels
+#   ch 2..4   unassigned    -> ignored by the model
+#   ch 5      Servo1  (201) -> servo_0 topic -> both steering joints
+#
+# NOTE: SITL reverses the steering output via SIM_GZ_SV_REV, which has no
+# HIL equivalent. If bench testing shows inverted steering, the fix
+# belongs in the bridge (servo sign), not here.
+
+. ${R}etc/init.d/rc.rover_ackermann_defaults
+
+param set SYS_HITL 1
+
+param set UAVCAN_ENABLE 0
+
+# no real battery on the bench
+param set-default CBRK_SUPPLY_CHK 894281
+
+# bench HITL has no RC receiver
+param set-default COM_RCL_EXCEPT 31
+param set-default COM_RC_IN_MODE 4
+param set-default NAV_DLL_ACT 0
+
+param set-default NAV_ACC_RAD 0.5
+
+# Ackermann Parameters
+param set-default RA_WHEEL_BASE 0.321
+param set-default RA_ACC_RAD_GAIN 2
+param set-default RA_ACC_RAD_MAX 3
+param set-default RA_MAX_STR_ANG 0.5236
+param set-default RA_STR_RATE_LIM 360
+
+# Rover Control Parameters
+param set-default RO_ACCEL_LIM 3
+param set-default RO_DECEL_LIM 6
+param set-default RO_JERK_LIM 15
+param set-default RO_MAX_THR_SPEED 3.1
+
+# Rover Rate Control Parameters
+param set-default RO_YAW_RATE_I 0.1
+param set-default RO_YAW_RATE_P 1
+param set-default RO_YAW_RATE_LIM 180
+
+# Rover Attitude Control Parameters
+param set-default RO_YAW_P 3
+
+# Rover Position Control Parameters
+param set-default RO_SPEED_LIM 3
+param set-default RO_SPEED_I 0.1
+param set-default RO_SPEED_P 1
+
+# Pure Pursuit parameters
+param set-default PP_LOOKAHD_GAIN 1
+param set-default PP_LOOKAHD_MAX 10
+param set-default PP_LOOKAHD_MIN 1
+
+# Steering allocation (one control-surface channel)
+param set-default CA_SV_CS_COUNT 1
+
+# HIL channel map (see header): throttle on ch1, steering on ch5
+param set-default HIL_ACT_FUNC1 101
+param set-default HIL_ACT_FUNC5 201
+# steering reversed, mirroring SITL's SIM_GZ_SV_REV=1 (ch5 = bit 4)
+param set-default HIL_ACT_REV 16
+# servo channel disarms to CENTER (the HIL_ACT group default is the
+# motor-style 0 = full deflection on a servo)
+param set-default HIL_ACT_DIS5 500
+param set-default HIL_ACT_FAIL5 500

@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# @name RealGazebo HITL lc_62
+# @name HIL lc_62
 #
 # @type Standard VTOL
 # @class VTOL
@@ -189,4 +189,5 @@ param set-default VT_FW_DIFTHR_S_Y 0
 
 # bench HITL has no RC receiver
 param set-default COM_RCL_EXCEPT 31
+param set-default COM_RC_IN_MODE 4
 param set-default NAV_DLL_ACT 0
