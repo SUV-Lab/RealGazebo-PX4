@@ -1066,6 +1066,20 @@ UxrceddsClient *UxrceddsClient::instantiate(int argc, char *argv[])
 
 #endif // UXRCE_DDS_CLIENT_UDP
 
+	// RealGazebo: real vehicles start the client without -n (see the uxrce
+	// serial_config), so their ROS2 topics would land at the root (/fmu/...).
+	// Derive the namespace from MAV_SYS_ID to mirror SITL's vehicle{sysid}
+	// convention -- SITL always passes -n, so this branch is hardware-only --
+	// which also keeps a multi-vehicle fleet from colliding on one DDS domain.
+	static char sysid_namespace[16];
+
+	if (client_namespace == nullptr) {
+		int32_t sys_id = 1;
+		param_get(param_find("MAV_SYS_ID"), &sys_id);
+		snprintf(sysid_namespace, sizeof(sysid_namespace), "vehicle%d", (int)sys_id);
+		client_namespace = sysid_namespace;
+	}
+
 	if (error_flag) {
 		return nullptr;
 	}
