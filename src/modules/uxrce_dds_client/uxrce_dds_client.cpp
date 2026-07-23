@@ -546,7 +546,15 @@ void UxrceddsClient::checkConnectivity(uxrSession *session)
 			_had_ping_reply = false;
 		}
 
-		if (_num_pings_missed >= 3) {
+		// RealGazebo: 10 misses (~10 s), not 3.  With no inbound /fmu/in
+		// traffic (bench/telemetry-only use) payload rx stays 0 forever, so
+		// this watchdog is permanently armed - unlike a mission link whose
+		// rx>0 disables it entirely.  A busy agent (DDS discovery/matching
+		// bursts from a peer vehicle reconnecting) can be deaf for a few
+		// seconds; killing the session then triggers a delete/recreate storm
+		// that makes the OTHER agents busy, cascading across the fleet.  A
+		// 10 s tolerance rides out the bursts and breaks the cascade.
+		if (_num_pings_missed >= 10) {
 			PX4_ERR("No ping response, disconnecting");
 			_connected = false;
 		}
